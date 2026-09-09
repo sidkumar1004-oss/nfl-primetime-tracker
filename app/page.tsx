@@ -1,47 +1,67 @@
-export default function Page() {
+import { getBets } from '@/app/actions/bets'
+import { getCurrentSeasonWeek, getPrimetimeGames } from '@/lib/espn'
+import { GameCard } from '@/components/game-card'
+import { GameSelector } from '@/components/game-selector'
+import { WeekNav } from '@/components/week-nav'
+import { ShareButton } from '@/components/share-button'
+import { BetForm } from '@/components/bet-form'
+import { BetTracker } from '@/components/bet-tracker'
+
+export const dynamic = 'force-dynamic'
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string; game?: string }>
+}) {
+  const params = await searchParams
+  const current = await getCurrentSeasonWeek()
+
+  const week = params.week ? Math.min(18, Math.max(1, Number(params.week))) : current.week
+  const games = await getPrimetimeGames(current.season, week, current.seasonType)
+
+  const selected = games.find((g) => g.id === params.game) ?? games[0] ?? null
+  const bets = selected ? await getBets(selected.id) : []
+
   return (
-    <main
-      style={{
-        colorScheme: 'light dark',
-        position: 'relative',
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'light-dark(#fff, #000)',
-        color: 'light-dark(#000, #fff)',
-      }}
-    >
-      <svg
-        aria-hidden="true"
-        style={{ width: 80, height: 80 }}
-        width={80}
-        height={80}
-        fill="none"
-        viewBox="0 0 20 20"
-        xmlns="http://www.w3.org/2000/svg"
-        stroke="currentColor"
-        strokeWidth="0.5"
-      >
-        <path
-          d="M14.2 14.2H17V6.9375C17 4.76288 15.2371 3 13.0625 3H5.8V5.8M14.2 14.2V7.79063L7.79062 14.2H14.2ZM14.2 14.2V17H6.9375C4.76288 17 3 15.2371 3 13.0625V5.8H5.8M5.8 5.8V12.2313L12.2313 5.8H5.8Z"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <p
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: 'calc(50% + 56px)',
-          transform: 'translateX(-50%)',
-          whiteSpace: 'nowrap',
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'light-dark(#71717a, #a1a1aa)',
-        }}
-      >
-        Your v0 generation will show here.
-      </p>
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-5 px-4 pb-16 pt-6">
+      <header className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.2em] text-primary">
+              Primetime
+            </p>
+            <h1 className="text-2xl font-bold leading-tight text-balance">Parlay Board</h1>
+          </div>
+          <ShareButton />
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {current.season} Season · TNF, SNF &amp; MNF
+          </p>
+          <WeekNav week={week} />
+        </div>
+      </header>
+
+      {games.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center">
+          <p className="font-medium">No primetime games scheduled</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Week {week} has no standalone TNF, SNF or MNF games. Try another week.
+          </p>
+        </div>
+      ) : (
+        <>
+          <GameSelector games={games} selectedId={selected!.id} />
+          <GameCard game={selected!} />
+          <BetForm gameId={selected!.id} season={current.season} week={week} />
+          <BetTracker bets={bets} />
+        </>
+      )}
+
+      <footer className="mt-auto pt-4 text-center text-xs text-muted-foreground">
+        Anyone with this link can add legs. Schedule &amp; odds via ESPN.
+      </footer>
     </main>
   )
 }
